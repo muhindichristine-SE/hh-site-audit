@@ -572,13 +572,13 @@
       <span style="font-size:13px;">No photo yet</span>
     </div>
     <div style="display:flex;gap:8px;margin-top:8px;">
-      <label class="btn btn-secondary" style="flex:1;font-size:13px;text-align:center;cursor:pointer;">
+      <label class="btn btn-secondary" style="flex:1;font-size:13px;text-align:center;cursor:pointer;overflow:hidden;position:relative;">
         📷 Take Photo
-        <input type="file" accept="image/*" capture="environment" id="obsCameraInput" style="display:none;">
+        <input type="file" accept="image/*" capture="environment" id="obsCameraInput" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer;">
       </label>
-      <label class="btn btn-secondary" style="flex:1;font-size:13px;text-align:center;cursor:pointer;">
+      <label class="btn btn-secondary" style="flex:1;font-size:13px;text-align:center;cursor:pointer;overflow:hidden;position:relative;">
         🖼 Upload
-        <input type="file" accept="image/*" id="obsPhotoUploadInput" style="display:none;">
+        <input type="file" accept="image/*" id="obsPhotoUploadInput" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer;">
       </label>
     </div>
     <p style="font-size:11px;color:#9ca3af;margin-top:5px;line-height:1.4;">📷 Camera &amp; 📍 Location access lets you geotag photos automatically. Tap <em>Allow</em> if your browser asks — no data leaves the device.</p>
@@ -855,7 +855,7 @@
       <div class="color-dot"        data-color="#ffffff" style="background:#ffffff;border:1px solid #ccc;"></div>
     </div>
   </div>
-  <div class="ann-wrap"><img id="annotationImg" src="" alt="Issue"><canvas id="annotationCanvas"></canvas></div>
+  <div class="ann-wrap"><img id="annotationImg" src="" alt="Issue"><canvas id="annotationCanvas" style="touch-action:none;"></canvas></div>
   <div style="background:var(--hh-purple-xlight);border:1px solid rgba(61,44,141,0.2);border-radius:var(--radius);padding:12px 14px;margin-bottom:12px;font-size:13px;color:var(--hh-purple-dark);">
     ✅ When happy with annotations, tap the button below to save them to the issue.
   </div>
@@ -2240,7 +2240,7 @@ function _annTouchEnd(e){ e.preventDefault(); annEnd(); }
 function openAnnotate(idx) {
   S.editingIssue = idx;
   const iss = S.projects[S.proj].issues[idx];
-  if (!iss.photo) return;
+  if (!iss.photo) { toast('⚠ No photo on this issue — take a photo first'); return; }
   showScreen('screenAnnotate');
 
   // Wire tool buttons with touchend so they fire instantly on mobile
@@ -2288,10 +2288,12 @@ function openAnnotate(idx) {
     canvas.addEventListener('touchmove',  _annTouchMove,  {passive:false});
     canvas.addEventListener('touchend',   _annTouchEnd,   {passive:false});
   };
+  // Reset src first so onload always fires, even if same photo is opened twice
+  img.src = '';
   img.src = iss.photo;
 }
 function getAnnPos(e) { const c = document.getElementById('annotationCanvas'); const r = c.getBoundingClientRect(); return { x: (e.clientX-r.left)*c.width/r.width, y: (e.clientY-r.top)*c.height/r.height }; }
-function annStart(e) { S.isDrawing = true; const p = getAnnPos(e); S.sx=p.x; S.sy=p.y; S.penPts=[{x:p.x,y:p.y}]; const c = document.getElementById('annotationCanvas'); S.annHistory.push(annCtx.getImageData(0,0,c.width,c.height)); }
+function annStart(e) { if (!annCtx) return; S.isDrawing = true; const p = getAnnPos(e); S.sx=p.x; S.sy=p.y; S.penPts=[{x:p.x,y:p.y}]; const c = document.getElementById('annotationCanvas'); S.annHistory.push(annCtx.getImageData(0,0,c.width,c.height)); }
 function annMove(e) {
   if (!S.isDrawing) return; const p = getAnnPos(e); const c = document.getElementById('annotationCanvas'); const lw = 3*(c.width/400);
   if (S.annHistory.length) annCtx.putImageData(S.annHistory[S.annHistory.length-1],0,0);
@@ -3568,8 +3570,12 @@ function pbAnnStart(evt) {
     }
     annDrawing = false;
   } else if (annTool === 'eraser') {
+    annDrawing = true;
     // Fix 6: apply erase immediately on touch so tap-without-move still works
     pbAnnMove(evt);
+  } else {
+    // arrow, rect, circle — mark drawing active so pbAnnMove renders the stroke
+    annDrawing = true;
   }
 }
 
